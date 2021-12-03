@@ -86,7 +86,7 @@ function main() {
 
     drawScene();
     
-    // setup ui
+    // set mouse control of ui
     set_slider_callbacks("longitude", function() { 
         const val = document.getElementById("longitude").value;
         document.getElementById("longitudeVal").innerText = val;
@@ -100,7 +100,6 @@ function main() {
         drawScene(); 
     });
 
-    // set mouse control of ui
     function set_slider_callbacks(id, fn) {
         document.getElementById(id).oninput = fn;
     }
@@ -171,7 +170,7 @@ function main() {
     addEventListener('keydown', latitudeControl);
     addEventListener("keyup", function (e) {
         keyMessage.innerText = "";
-    })
+    });
 
     // draw the scene
     function drawScene() {
@@ -240,6 +239,8 @@ function main() {
         const zFar = 30;
         mat4.perspective(P_right, fieldOfViewRadians, aspect, zNear, zFar);
 
+        // sol 1 - complicated way (implementing mat4.lookAt())
+        /*
         let cameraMatrix = mat4.create();
         // compute position of the camera with matrix (cameraMatrix)
         mat4.rotateY(cameraMatrix, cameraMatrix, rotation[1]);
@@ -271,6 +272,12 @@ function main() {
         }
         // compute view matrix V by inversing cameraMatrix
         mat4.invert(V_right, cameraMatrix);
+        mat4.multiply(MVP_right, P_right, V_right);
+        */
+        // sol 2 - simple way (fits this assignment)
+        mat4.translate(V_right, V_right, [0, 0, -10]); // T
+        mat4.rotateX(V_right, V_right, rotation[0]); // T Rx
+        mat4.rotateY(V_right, V_right, -rotation[1]); // T Rx Ry
         mat4.multiply(MVP_right, P_right, V_right);
 
         // ----- axes -----
@@ -340,6 +347,7 @@ function createVAO(gl, program, positionInfo, colorInfo) {
     return vao;
 }
 
+// for sol 1 (line 243-277)
 // source: https://webgl2fundamentals.org/webgl/webgl-3d-camera-look-at.html
 function cross(a, b) {
     return [a[1] * b[2] - a[2] * b[1],
