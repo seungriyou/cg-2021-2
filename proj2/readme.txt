@@ -14,7 +14,7 @@
     - x, y, z axes
     - multiple viewport
         - left half: orthographic camera (w/ lookAt())
-        - right half: perspective camera (w/o lookAt(), implemented in two ways (line 243-282))
+        - right half: perspective camera (w/o lookAt(), implemented in two ways (line 241-280))
     - GUI(slide bars for longitude & latitude)
         - controlled by arrow keys & mouse
         - control the meridian, line of sight, and perspective view
