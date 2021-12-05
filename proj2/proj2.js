@@ -19,7 +19,6 @@ out vec4 v_color;
 void main() {
   // Multiply the position by the matrix.
   gl_Position = u_matrix * a_position;
-  //gl_Position = a_position;
 
   // Pass the color to the fragment shader.
   v_color = a_color;
@@ -347,7 +346,7 @@ function createVAO(gl, program, positionInfo, colorInfo) {
     return vao;
 }
 
-// for sol 1 (line 243-277)
+// for sol 1 (line 241-275)
 // source: https://webgl2fundamentals.org/webgl/webgl-3d-camera-look-at.html
 function cross(a, b) {
     return [a[1] * b[2] - a[2] * b[1],
