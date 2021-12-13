@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>Chopper</title>
+  <style>
+    body {
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <script id="vertShader" type="shader">
+
+    // Custom attributes
+    uniform sampler2D heightMap;
+    uniform float     eps;
+
+    float srf(vec2 pos){
+      vec4 color = texture2D(heightMap,pos);
+      return (color.r+color.g+color.b)*color.a/3.0;
+    }
+
+    #define PHONG
+
+    varying vec3 vViewPosition;
+    #ifndef FLAT_SHADED
+      varying vec3 vNormal;
+    #endif
+    #include <common>
+    #include <uv_pars_vertex>
+    #include <uv2_pars_vertex>
+    #include <displacementmap_pars_vertex>
+    #include <envmap_pars_vertex>
+    #include <color_pars_vertex>
+    #include <fog_pars_vertex>
+    #include <morphtarget_pars_vertex>
+    #include <skinning_pars_vertex>
+    #include <shadowmap_pars_vertex>
+    #include <logdepthbuf_pars_vertex>
+    #include <clipping_planes_pars_vertex>
+    void main() {
+      #include <uv_vertex>
+      #include <uv2_vertex>
+      #include <color_vertex>
+      #include <beginnormal_vertex>
+      #include <morphnormal_vertex>
+      #include <skinbase_vertex>
+      #include <skinnormal_vertex>
+      #include <defaultnormal_vertex>
+    #ifndef FLAT_SHADED // Normal computed with derivatives when FLAT_SHADED
+
+    // Get model position
+    vec2 vUv = position.xz;
+
+    // Calculate normal
+    vec2 dx = vec2(eps,0.0);
+    vec2 dz = vec2(0.0,eps);
+
+    vec3 norm = -normalize(vec3((srf(vUv+dx)-srf(vUv-dx))/(2.0*eps),-1,(srf(vUv+dz)-srf(vUv-dz))/(2.0*eps)));
+    vNormal = normalize(modelViewMatrix * vec4(norm,0.0)).xyz;
+
+    #endif
+      #include <begin_vertex>
+      #include <morphtarget_vertex>
+      #include <skinning_vertex>
+      #include <displacementmap_vertex>
+      #include <project_vertex>
+      #include <logdepthbuf_vertex>
+      #include <clipping_planes_vertex>
+      vViewPosition = - mvPosition.xyz;
+      #include <worldpos_vertex>
+      #include <envmap_vertex>
+      #include <shadowmap_vertex>
+      #include <fog_vertex>
+
+      // Calculate pos from texture
+      vec3 texturedPos = vec3(position.x,srf(vUv),position.z);
+
+      // Calculate world-space pos for light computation
+      vec3 vPos = (modelViewMatrix * vec4(texturedPos, 1.0)).xyz;
+
+      // Calculated projected position
+      gl_Position = projectionMatrix * vec4(vPos, 1.0);
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "https://cdnjs.cloudflare.com/ajax/libs/three.js/r123/three.module.js"
+
+    // Global configuration
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    scene.background = new THREE.Color(0xbfe3dd)
+    document.body.appendChild(renderer.domElement);
+
+    function unshiftKey(key) {
+      /*
+      If shift key is allowed, same key will be detected differently.
+      Therefore there will be some errors.
+      e.g. If i do press shift > press + > release shift > release +,
+      + key will not be released.
+      Therefore key converting is required.
+      */
+      if (key == '_') return '-';
+      if (key == '+') return '=';
+      return key.toLowerCase()
+    }
+
+    const isKeyPressed = (() => {
+      // Check if given key is pressed or not.
+      const state = {};
+      window.addEventListener('keyup', (e) => {
+        let key = unshiftKey(e.key); // To prevent error by case, force key to be lowercase.
+        state[key] = false;
+        state.shift = e.shiftKey; // To prevent error by case, force key to be lowercase.
+      });
+      window.addEventListener('keydown', (e) => {
+        let key = unshiftKey(e.key);
+        state[key] = true;
+        state.shift = e.shiftKey;
+      });
+      return (key) => state.hasOwnProperty(key) && state[key] || false;
+    })();
+
+    function getTerrainGeometry(n) {
+      // Get n by n grid geometry. width=height=1.
+
+      // Geometry is a user-friendly alternative to BufferGeometry.
+      const geometry = new THREE.Geometry();
+
+      // Order is from top-left to bottom-right.
+      for (let i = 0; i <= n; i++) {
+        for (let j = 0; j <= n; j++) {
+          geometry.vertices.push(new THREE.Vector3(i / n, 0, j / n))
+        }
+      }
+
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          let currIndex = i * (n + 1) + j;
+          let nextLine = currIndex + (n + 1);
+          geometry.faces.push(
+            new THREE.Face3(currIndex, currIndex + 1, nextLine),
+            new THREE.Face3(nextLine, currIndex + 1, nextLine + 1)
+          )
+        }
+      }
+
+      // Do i need to call this function?
+      geometry.computeBoundingSphere();
+
+      return geometry
+    }
+
+    function getTerrainMaterial() {
+      // Get terrain material from given texture. Therrain height will be (R+G+B)*A/3.
+
+      const texture = new THREE.TextureLoader().load("./texture.jpg");
+      // texture.magFilter = THREE.LinearFilter;  // Default filter
+      // texture.magFilter = THREE.NearestFilter; // Available filter
+
+
+      var customUniforms = THREE.UniformsUtils.merge([
+        THREE.ShaderLib.phong.uniforms,
+        {
+          diffuse: { value: new THREE.Color('#d47b4a') },
+          heightMap: { value: texture },
+          eps: { value: 0.0071 },
+        }
+      ]);
+
+      var customMaterial = new THREE.ShaderMaterial({
+        uniforms: customUniforms,
+        vertexShader: document.getElementById('vertShader').text,
+        fragmentShader: THREE.ShaderLib.phong.fragmentShader,
+        lights: true,
+        transparent: true,
+        name: 'custom-material'
+      });
+      customMaterial.uniforms.heightMap.value = texture;
+      return customMaterial;
+    }
+
+    function getTerrain() {
+      const geometry = getTerrainGeometry(400);
+      const material = getTerrainMaterial();
+      const terrain = new THREE.Mesh(geometry, material);
+      terrain.scale.set(100, 10, 100)
+      terrain.position.set(-50, 0, -50)
+      return terrain
+    }
+
+    const VELO_BULLET = 20;
+    const GRAVITY = -9.8;
+    const MIN_BULLET_HEIGHT = 0;
+    const MAX_BULLET_COUNT = 10
+
+    // Because creating new object takes a lot of computation, pre-create bullet.
+    let bullets = []
+    for (let i = 0; i < MAX_BULLET_COUNT; i++) {
+      let bullet = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.1, 0.1),
+        new THREE.MeshBasicMaterial({ color: '#ffff80' })
+      )
+      let light = new THREE.PointLight(0xffff00, 1, 10);
+      bullet.add(light);
+      bullet.vx = 0;
+      bullet.vz = 0;
+      bullet.vy = 0;
+
+      bullet.setAlive = alive => {
+        bullet.alive = alive;
+        if (alive) {
+          light.intensity = 1;
+        } else {
+          light.intensity = 0;
+          bullet.position.set(0, -99999, 0) // Move to outside of clip space so that it is not rendered.
+        }
+      }
+
+      bullet.setAlive(false);
+      bullets.push(bullet)
+      scene.add(bullet);
+    }
+
+    function getBullet(direction, position) {
+      let bullet = null;
+      for (let i = 0; i < MAX_BULLET_COUNT; i++) {
+        if (!bullets[i].alive) {
+          bullet = bullets[i];
+          break;
+        }
+      }
+      if (bullet === null) return null;
+
+      bullet.vx = -Math.cos(direction) * VELO_BULLET;
+      bullet.vz = Math.sin(direction) * VELO_BULLET;
+      bullet.vy = 0;
+      bullet.setAlive(true);
+      bullet.position.set(position.x, position.y, position.z)
+
+      return bullet;
+    }
+
+    function updateBullets() {
+      bullets.forEach(bullet => {
+        if (!bullet.alive) return;
+        bullet.vy += GRAVITY * dt;
+        bullet.position.x += bullet.vx * dt;
+        bullet.position.z += bullet.vz * dt;
+        bullet.position.y += bullet.vy * dt;
+        if (bullet.position.y < MIN_BULLET_HEIGHT) {
+          bullet.setAlive(false);
+        }
+      })
+    }
+
+    function getChopper() {
+      const VELO_ROTATION = 3;
+      const VELO_VERTICAL = 7;
+      const VELO_HORIZONTAL = 9;
+
+      const matBody = new THREE.MeshPhongMaterial();
+      const matRoter = new THREE.MeshPhongMaterial({ color: '#a0a0f0' });
+
+      const chopper = new THREE.Object3D();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.75), matBody);
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(2, 0.25, 0.25), matBody);
+
+      const roter = new THREE.Object3D();
+      const roterA = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 0.2), matRoter);
+      const roterB = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 3), matRoter);
+      roter.add(roterA)
+      roter.add(roterB)
+
+      tail.position.x = 1.5
+      roter.position.y = 0.75
+
+      body.add(tail)
+      body.add(roter)
+      chopper.add(body)
+
+      chopper.destRotation = 0;
+      chopper.dVh = 0; // Dest velocity horizontal
+      chopper.dVv = 0; // Dest velocity vertical
+
+      chopper.vH = 0; // Velocity horizontal
+      chopper.vV = 0; // Velocity vertical
+
+      let bulletFrames = []
+      window.addEventListener('keydown', (e) => {
+        if (e.key === ' ') {
+          let bullet = getBullet(chopper.rotation.y, chopper.position);
+        }
+      });
+
+      function frame(t, dt) {
+        // Process key press
+        if (!isKeyPressed('shift')) {
+          if (isKeyPressed('arrowleft')) chopper.destRotation += VELO_ROTATION * dt;
+          if (isKeyPressed('arrowright')) chopper.destRotation -= VELO_ROTATION * dt;
+          if (isKeyPressed('arrowup')) chopper.dVh = VELO_HORIZONTAL;
+          else if (isKeyPressed('arrowdown')) chopper.dVh = -VELO_HORIZONTAL;
+          else chopper.dVh = 0;
+        } else chopper.dVh = 0;
+
+        if (isKeyPressed('a')) chopper.dVv = VELO_VERTICAL;
+        else if (isKeyPressed('z')) chopper.dVv = -VELO_VERTICAL;
+        else chopper.dVv = 0;
+
+        // Apply chopper rotation
+        let gain = 1 / (1 + dt * 4);
+        chopper.rotation.y = chopper.rotation.y * gain + chopper.destRotation * (1 - gain);
+
+        // Update velocity
+        chopper.vH = chopper.vH * gain + chopper.dVh * (1 - gain);
+        chopper.vV = chopper.vV * gain + chopper.dVv * (1 - gain);
+
+        // Apply velocity
+        chopper.position.x += chopper.vH * -Math.cos(chopper.rotation.y) * dt;
+        chopper.position.z += chopper.vH * Math.sin(chopper.rotation.y) * dt;
+        chopper.position.y += chopper.vV * dt;
+
+        // Update chopper internal motion
+        roter.rotation.y += dt * (chopper.vV / 2 + 10)
+        body.position.y = Math.sin(t / 200) / 10
+        body.rotation.z = chopper.vH / 40;
+      }
+
+      return [chopper, frame]
+    }
+
+    // Global light
+    let cube;
+    {
+      let ambientLight = new THREE.AmbientLight(0x303030);
+      scene.add(ambientLight);
+
+      let directionalLight = new THREE.DirectionalLight(0xffffff, 1)
+      scene.add(directionalLight)
+      directionalLight.position.set(0, 50, 50);
+    }
+
+    // Terrain
+    let terrain;
+    {
+      terrain = getTerrain()
+      scene.add(terrain);
+    }
+
+    // Chopper
+    let chopper, frameChopper;
+    {
+      [chopper, frameChopper] = getChopper();
+      chopper.position.set(0, 20, 0)
+      scene.add(chopper);
+    }
+
+    let cCDst = 50; // Camera current distance
+    let cCAlt = Math.PI / 4; // Camera current altitude
+    let cCAzm = 0; // Camera current azimuth
+
+    let cDDst = cCDst; // Camera destination distance
+    let cDAlt = cCAlt; // Camera destination altitude
+    let cDAzm = cCAzm; // Camera destination azimuth
+
+    let tBef = -1, dt;
+    const animate = function (t) {
+      const MAX_ALT = Math.PI / 2 - 0.01;
+      const MIN_ALT = Math.PI / 10;
+      const MIN_DST = 10
+
+      // Request next frame
+      requestAnimationFrame(animate);
+
+      // Initialize variables
+      if (tBef < 0) {
+        tBef = t;
+        return;
+      }
+
+      // Update dt
+      dt = (t - tBef) / 1000;
+      tBef = t;
+
+      // Process chopper
+      frameChopper(t, dt);
+
+      // Process bullets
+      updateBullets();
+
+      const VELO_CAM_ROTATE = 1
+      const VELO_CAM_ZOOM = 15
+
+      // Process key press
+      if (isKeyPressed('shift')) {
+        if (isKeyPressed('arrowleft')) cDAzm += VELO_CAM_ROTATE * dt;
+        if (isKeyPressed('arrowright')) cDAzm -= VELO_CAM_ROTATE * dt;
+        if (isKeyPressed('arrowup')) cDAlt += VELO_CAM_ROTATE * dt;
+        if (isKeyPressed('arrowdown')) cDAlt -= VELO_CAM_ROTATE * dt;
+
+        // Limit altitude range
+        if (cDAlt > MAX_ALT) cDAlt = MAX_ALT;
+        if (cDAlt < MIN_ALT) cDAlt = MIN_ALT;
+      }
+      if (isKeyPressed('=')) cDDst -= VELO_CAM_ZOOM * dt;
+      if (isKeyPressed('-')) cDDst += VELO_CAM_ZOOM * dt;
+      if (cDDst < MIN_DST) cDDst = MIN_DST
+
+      // Update camera position
+      let gain = 1 / (1 + dt * 4);
+      cCDst = cCDst * gain + cDDst * (1 - gain);
+      cCAlt = cCAlt * gain + cDAlt * (1 - gain);
+      cCAzm = cCAzm * gain + cDAzm * (1 - gain);
+
+      // Apply camera position
+      camera.position.y = cCDst * Math.sin(cCAlt);
+      camera.position.x = cCDst * Math.cos(cCAzm) * Math.cos(cCAlt);
+      camera.position.z = cCDst * Math.sin(cCAzm) * Math.cos(cCAlt);
+      camera.lookAt(0, 0, 0)
+
+      renderer.render(scene, camera);
+    };
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+
+</html>
