@@ -149,8 +149,7 @@ class Axes
 Axes.loc_aPosition = 5;
 Axes.loc_aColor = 9;
 
-Axes.src_shader_vert = 
-`#version 300 es
+Axes.src_shader_vert = `#version 300 es
 layout(location=${Axes.loc_aPosition}) in vec4 aPosition;
 layout(location=${Axes.loc_aColor}) in vec4 aColor;
 uniform mat4 MVP;
@@ -161,8 +160,7 @@ void main()
     vColor = aColor;
 }
 `;
-Axes.src_shader_frag = 
-`#version 300 es
+Axes.src_shader_frag = `#version 300 es
 #ifdef GL_ES
 precision mediump float;
 #endif
@@ -204,7 +202,7 @@ class Terrain
         // texCoords
         for (let y = 0; y <= d; ++y) {
             for (let x = 0; x <= d; ++x) {
-                texCoords.push(x*d_inv, y*d_inv);
+                texCoords.push(x * d_inv, y * d_inv);
             }
         }
         // indices
@@ -251,8 +249,6 @@ class Terrain
 
         gl.bindVertexArray(null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-
     }
     init_texture(gl)
     {
@@ -290,12 +286,17 @@ class Terrain
             return false;
         }
         // Register the event handler to be called on loading an image
-        //image.onload = () => this.load_texture(gl, texture, loc_uSampler, image); //console.log("image loaded!") };
+        /*
         image.addEventListener('load', function() {
             console.log('image loaded!');
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-        })
+        });*/
+        image.onload = function () {
+            console.log('image loaded!');
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        };
 
         // Tell the browser to load an image
         image.src = './yorkville.jpg';
@@ -328,9 +329,7 @@ class Terrain
 }
 Terrain.loc_aTexCoord = 7;
 
-Terrain.src_shader_vert =
-`#version 300 es
-
+Terrain.src_shader_vert = `#version 300 es
 // an attribute is an input in to a vertex shader.
 // It will receive data from a buffer
 layout(location=${Terrain.loc_aTexCoord}) in vec2 aTexCoord;
@@ -345,27 +344,25 @@ uniform sampler2D uSampler;
 out vec2 vTexCoord;
 
 void main() {
-    // gl_Position 값은 x, y, z 각각 계산해주어야 함
-    // L_x = L_y = 4라고 설정
-    // S = 2라고 설정
+    float l = 4.0;  // L_x = L_y = 4라고 설정
+    float s = 1.5;  // S = 1.5라고 설정
 
     // get the height from the heightmap image
     vec4 heightmap_color = vec4(texture(uSampler, aTexCoord));
-    float height = heightmap_color[0] * 1.5 - 0.7;
+    float height = heightmap_color[0] * s - 0.7;
     
     // set the new vertex 
-    float x = float(aTexCoord.s * 4.0 - 2.0);
-    float y = float(aTexCoord.t * 4.0 - 2.0);
+    float x = float(aTexCoord.s * l - l / 2.0);
+    float y = float(aTexCoord.t * l - l / 2.0);
     vec3 new_vertex = vec3(x, y, height);
-
-    // Pass the texcoord to the fragment shader.
-    vTexCoord = aTexCoord;
 
     // transform the location of the vertex for the graphics pipeline.
     gl_Position = MVP * vec4(new_vertex, 1.0);
+
+    // Pass the texcoord to the fragment shader.
+    vTexCoord = aTexCoord;
 }`;
-Terrain.src_shader_frag =
-`#version 300 es
+Terrain.src_shader_frag =`#version 300 es
 #ifdef GL_ES
 precision mediump float;
 #endif
@@ -385,6 +382,26 @@ void main() {
 
 Terrain.shader = null;
 
+// ===== Light =====
+class Light
+{
+
+}
+Light.loc_aPosition = 3;
+Light.loc_aColor = 8;
+
+Light.src_shader_vert = `
+`;
+Light.src_shader_frag = `
+`;
+
+Light.shader = null;
+Light.generate_uniform_names = function()
+{
+
+};
+
+// ===== Shaders =====
 function init_shader(gl, type, src)
 {
     let h_shader = gl.createShader(type);
@@ -404,7 +421,6 @@ function init_shader(gl, type, src)
     }
     return h_shader;
 }
-
 
 function init_shaders(gl, src_vert, src_frag)
 {
