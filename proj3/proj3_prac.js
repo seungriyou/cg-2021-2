@@ -21,7 +21,9 @@ function main()
     let fov = 50;
     let P = mat4.create();
     
+    // ===== class's instance =====
     let axes = new Axes(gl);
+    let terrain = new Terrain(gl);
     
     document.getElementsByTagName("BODY")[0].onkeydown = function(ev) {
         switch(ev.key)
@@ -73,7 +75,10 @@ function main()
         
         transform_view(V, azimuth, elevation);
         
+        // ===== render =====
         axes.render(gl, V, P);
+        terrain.render(gl, V, P);
+
         requestAnimationFrame(tick, canvas); // Request that the browser calls tick
     };
     tick();
@@ -101,6 +106,91 @@ class Terrain
     }
     init_vbo(gl, l)
     {
+        // ===== prepare for texCoords & indices =====
+        // division (grid)
+        const d = 20;
+        const d_inv = 1/d;
+        // number of vertices
+        this.n = (d + 1) * (d + 1);
+
+        // set arrays
+        const texCoords = [];
+        const indices = [];
+
+        // texCoords
+        for (let y = 0; y <= d; ++y) {
+            for (let x = 0; x <= d; ++x) {
+                texCoords.push(x*d_inv, y*d_inv);
+            }
+        }
+        // indices
+        const rowStride = d + 1;
+        for (let y = 0; y < d; ++y) {
+            const rowOff = y * rowStride;
+            for (let x = 0; x < d; ++x) {
+                indices.push(rowOff + x, rowOff + x + 1, rowOff + x + rowStride + 1);
+            }
+        }
+        for (let x = 0; x < d; ++x) {
+            for (let y = 0; y < d; ++y) {
+                const rowOff = y * rowStride;
+                indices.push(rowOff + x, rowOff + x + rowStride + 1, rowOff + x + rowStride);
+            }
+        }
+
+        // ====
+        this.vao = gl.createVertexArray();
+        gl.bindVertexArray(this.vao);
+
+        // texCoord buffer
+        const texCoordBuffer = gl.createBuffer();
+        if (!texCoordBuffer) {
+            console.log('Failed to create the texCoord buffer object');
+            return -1;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+
+        // index buffer
+        const indexBuffer = gl.createBuffer();
+        if (!indexBuffer) {
+            console.log('Failed to create the index buffer object');
+            return -1;
+        }
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+        // attrib
+        gl.vertexAttribPointer(Terrain.loc_aTexCoord, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(Terrain.loc_aTexCoord);
+
+
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        //return {vao, n};
+    }
+
+    
+    //init_textures(gl, loc_uSampler)
+    //init_textures(gl, vao, n, h_prog)
+    init_textures(gl, h_prog)
+    {
+        // 4_tex-typed-array-float.js
+        // 1_TextureQuad.js
+        // Create a texture object
+        let texture = gl.createTexture();
+        if (!texture) {
+            console.log('Failed to create the texture object');
+            return false;
+        }
+
+        // get the storage location of uSampler
+        let loc_uSampler = gl.getUniformLocation(h_prog, 'uSampler');
+        if (!loc_uSampler) {
+            console.log('Failed to get the storage location of uSampler');
+            return false;
+        }
         // Create the image object
         let image = new Image();
         if (!image) {
@@ -108,113 +198,61 @@ class Terrain
             return false;
         }
         // Register the event handler to be called on loading an image
-        image.onload = function() { loadTexture(gl, vao, n, texture, loc_uSampler, image); };
+        image.onload = () => this.load_texture(gl, texture, loc_uSampler, image); //console.log("image loaded!") };
 
         // Tell the browser to load an image
         image.src = './yorkville.jpg';
 
-        const positionLoc = gl.getAttribLocation(Terrain.h_prog, 'position');
-        const matrixLoc = gl.getUniformLocation(Terrain.h_prog, 'matrix');
-        
-        this.vao = gl.createVertexArray();
-        gl.bindVertexArray(this.vao);
-
-        const gridWidth = image.width - 1;
-        const gridDepth = image.height - 1;
-        const gridPoints = [];
-        for (let z = 0; z <= gridDepth; )
-
-        // const n = number of vertices;
-
-        // ===== position, color =====
-        // const vertices = new Float32Array();
-
-        // const vbo = gl.createBuffer();
-        // gl.bindBuffer();
-        // gl.bufferData();
-
-        // const SZ = 
-
-        // gl.vertexAttribPointer(Terrain.loc_aTexCoord,...);
-        // gl.enableVertexAttribArray(Terrain.loc_aTexCoord)
-
-        // gl.bindVertexArray(null);
-        // gl.bindBuffer(gl.ARRAY_BUFFER, null)
-
-        // ===== indexed =====
-        // create a buffer
-        // const positionBuffer = gl.createBuffer();
-
-        // turn on the attribute
-        // gl.enableVertexAttribArray()
-
-        // bind it to ARRAY_BUFFER
-        // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
-        // tell the attribute how to get data out of positionBuffer
-        // gl.vertexAttribPointer();
-
-
-        // create the buffer
-        // const indexBuffer = gl.createBuffer();
-
-        // make this buffer the current 'ELEMENT_ARRAY_BUFFER'
-        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
-        // fill the current element array buffer with data
-        /*const indices = [
-            0, 1, 2,   // first triangle
-            2, 1, 3,   // second triangle
-          ];
-          gl.bufferData(
-              gl.ELEMENT_ARRAY_BUFFER,
-              new Uint16Array(indices),
-              gl.STATIC_DRAW
-          );*/
-
-        // render 함수에서
-        // Draw the rectangle.
-        /*
-        var primitiveType = gl.TRIANGLES;
-        var offset = 0;
-        var count = 6;
-        var indexType = gl.UNSIGNED_SHORT;
-        gl.drawElements(primitiveType, count, indexType, offset);*/
-
-        // ===== texture =====
-        // const texCoords = new Float32Array([
-        //      
-        //]);
-        // const texCoordBuffer = gl.createBuffer();
-        // gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-        // gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
-        
-        // const FSIZE = texCoords.BYTES_PER_ELEMENT;
-
-        // gl.vertexAttribPointer(loc_aTexCoord, ...);
-        // gl.enableVertexAttribArray(loc_aTexCoord);
-
-        // gl.bindVertexArray(null);
-
-        // return {vao, n};
-
-        // ===== heightmap =====
+        return true;
     }
-    //init_textures(gl, loc_uSampler)
-    init_textures(gl, vao, n, h_prog)
+    //load_texture(gl, vao, n, texture, loc_uSampler, image)
+    load_texture(gl, texture, loc_uSampler, image)
     {
-    }
+        // Flip the image's y axis 
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        // Enable texture unit0
+        gl.activeTexture(gl.TEXTURE0);
+        // Bind the texture object to the target
+        gl.bindTexture(gl.TEXTURE_2D, texture);
 
-    load_texture(gl, vao, n, texture, loc_uSampler, image)
-    {
+        // Set the texture parameters
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+        // Set the texture image
+        //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, 2, 2, 0, gl.RGB, gl.FLOAT, new Float32Array([1,0,0,   0,1,0,   0,0,1,   1,0,1]));
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+        
+        // Set the texture unit 0 to the sampler
+        gl.uniform1i(loc_uSampler, 0);
+
+        // clear <canvas>
+        //gl.clear(gl.COLOR_BUFFER_BIT);
+
+        //gl.bindVertexArray(this.vao);
+        //gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.n); // Draw the rectangle
+        //gl.bindVertexArray(null);
     }
+    
     set_uniform_matrices(gl, h_prog, V, P)
     {
-
+        mat4.copy(this.MVP, P);
+        mat4.multiply(this.MVP, this.MVP, V);
+        gl.uniformMatrix4fv(gl.getUniformLocation(h_prog, "MVP"), false, this.MVP);
     }
     render(gl, V, P)
     {
-
+        gl.useProgram(Terrain.h_prog);
+        gl.bindVertexArray(this.vao);
+        this.set_uniform_matrices(gl, Terrain.h_prog, V, P);
+        if(!this.init_textures(gl, Terrain.h_prog)) {
+            console.log('Failed to intialize the texture.');
+            return;
+        }
+        //gl.drawArrays(gl.LINES, 0, 6);
+        gl.drawElements(gl.TRINAGLES, 6, gl.UNSIGNED_SHORT, 0);
+        gl.bindVertexArray(null);
+        gl.useProgram(null);
     }
 }
 Terrain.loc_aTexCoord = 7;
@@ -222,10 +260,40 @@ Terrain.loc_aTexCoord = 7;
 Terrain.src_shader_vert =
 `#version 300 es
 
-in vec4 aPosition;
-uniform mat4 matrix;
+// an attribute is an input in to a vertex shader.
+// It will receive data from a buffer
+layout(location=${Terrain.loc_aTexCoord}) in vec2 aTexCoord;
+
+// A matrix to transform the positions by
+uniform mat4 MVP;
+// The texture.
+uniform sampler2D uSampler;
+
+// a varying to pass the texture coordinates to the fragment shader
+//out vec4 vColor;
+out vec2 vTexCoord;
+
 void main() {
-    gl_Position = matrix * position;
+    // gl_Position 값은 x, y, z 각각 계산해주어야 함
+    // L_x = L_y = 2라고 설정
+    // S = 2라고 설정
+    //float x = float(aTexCoord.s * 2.0 - 1.0);
+    //float y = float(aTexCoord.t * 2.0 - 1.0);
+    //float z = float(2.0 * texture(uSampler, aTexCoord)[0]);
+
+    // get the height from the heightmap image
+    vec4 heightmap_color = vec4(texture(uSampler, aTexCoord));
+    float height = heightmap_color[0] * 2.0;
+    
+    // set the new vertex 
+    vec3 new_vertex = vec3(aTexCoord[0], aTexCoord[1], height);
+
+    // Pass the texcoord to the fragment shader.
+    vTexCoord = aTexCoord;
+
+    // transform the location of the vertex for the graphics pipeline.
+    //gl_Position = vec4(x, y, z, 1.0);
+    gl_Position = MVP * vec4(new_vertex, 1.0);
 }`;
 Terrain.src_shader_frag =
 `#version 300 es
@@ -233,13 +301,24 @@ Terrain.src_shader_frag =
 precision mediump float;
 #endif
 
+// Passed in from the vertex shader.
+//in vec4 vColor;
+in vec2 vTexCoord;
+
+// The texture.
+uniform sampler2D uSampler;
+
+// we need to declare an output for the fragment shader.
+out vec4 fColor;
+
 void main() {
-    fColor = vec4(0, 1, 0, 1);
+    fColor = texture(uSampler, vTexCoord);
+    //fColor = vec4(0.0, 1.0, 0.0, 1.0);
 }`;
 
 Terrain.shader = null;
 
-
+// ===== Axes =====
 class Axes
 {
     constructor(gl, length=2)
