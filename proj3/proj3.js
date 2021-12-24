@@ -24,16 +24,17 @@ function main()
     
     let axes = new Axes(gl);
     let terrain = new Terrain(gl);
+    let chopper = new Chopper(gl);
 
     // ===== lights =====
     let light_lists = [
         // fixed light
         new Light(
             gl,
-            [0.5, 2.3, 0.7, 1.0],   // position
+            [1.8, 1.8, 1.8, 1.0],   // position
             [0.1, 0.1, 0.1, 1.0],   // ambient
-            [0.27, 0.27, 0.27, 1.0], //[0.2, 0.2, 0.2, 1.0], //[1.0, 1.0, 1.0, 1.0],   // diffuse
-            [0.9, 0.9, 0.9, 1.0],//[1.0, 1.0, 1.0, 1.0],   // specular
+            [0.2, 0.2, 0.2, 1.0], //[0.2, 0.2, 0.2, 1.0], //[1.0, 1.0, 1.0, 1.0],   // diffuse
+            [1.0, 1.0, 1.0, 1.0],  //[0.9, 0.9, 0.9, 1.0], // specular
             true
         ),
         // bullets
@@ -43,7 +44,7 @@ function main()
     // terrain = copper
     let terrain_mat = new Material([0.19125,0.0735,0.0225], [0.7038,0.27048,0.0828], [0.256777,0.137622,0.086014], 0.1);
     //let terrain_mat = new Material([0.24725,0.1995,	0.0745], [0.75164,0.60648,0.22648], [0.628281,0.555802,0.366065], 0.4);
-
+    let chopper_mat = new Material([0.19225,0.19225,0.19225], [0.50754,0.50754,0.50754], [0.508273,0.508273,0.508273], 0.4);
     
     document.getElementsByTagName("BODY")[0].onkeydown = function(ev) {
         switch(ev.key)
@@ -97,6 +98,7 @@ function main()
         
         axes.render(gl, V, P);
         terrain.render(gl, V, P, light_lists, terrain_mat);
+        chopper.render(gl, V, P, light_lists, chopper_mat);
 
         for (let i in light_lists)
         {
@@ -633,6 +635,336 @@ class Material
 		this.shininess = shininess;
 	}
 }
+
+// ===== Chopper =====
+class Chopper
+{
+    constructor(gl)
+    {
+        this.MVP = mat4.create();
+        this.MV = mat4.create();
+        this.N = mat4.create();
+        this.M = mat4.create();
+
+        if(!Chopper.h_prog)
+        Chopper.h_prog = init_shaders(gl, Chopper.src_shader_vert, Chopper.src_shader_frag);
+        this.init_vbo(gl);
+    }
+    init_vbo(gl)
+    {
+        // body - vertices
+        const body_vertices = new Float32Array([
+            -0.25, -0.125, 0.125,  -0.25, 0.125, 0.125,  -0.25, -0.125, -0.125,  -0.25, 0.125, -0.125,// ABCD
+            -0.25, -0.125, 0.125,  -0.25, 0.125, 0.125,  0.0, -0.125, 0.125,  0.0, 0.125, 0.125,// ABEF
+            -0.25, -0.125, 0.125,  -0.25, -0.125, -0.125,  0.0, -0.125, 0.125,  0.0, -0.125, -0.125,// ACEG
+            -0.25, 0.125, 0.125,  -0.25, 0.125, -0.125,  0.0, 0.125, 0.125,  0.0, 0.125, -0.125,// BDFH
+            0.0, -0.125, 0.125,  0.0, 0.125, 0.125,  0.0, -0.125, -0.125,  0.0, 0.125, -0.125,// EFGH
+            -0.25, -0.125, -0.125,  -0.25, 0.125, -0.125, 0.0, -0.125, -0.125,  0.0, 0.125, -0.125, // CDGH
+            0.0, -0.07, 0.07,  0.0, 0.07, 0.07,  0.25, -0.07, 0.07,  0.25, 0.07, 0.07,// IJMN
+            0.0, -0.07, 0.07,  0.0, -0.07, -0.07,  0.25, -0.07, 0.07,  0.25, -0.07, -0.07,// IKMO
+            0.0, 0.07, 0.07,  0.0, 0.07, -0.07,  0.25, 0.07, 0.07,  0.25, 0.07, -0.07, // JLNP
+            0.25, -0.07, 0.07,  0.25, 0.07, 0.07,  0.25, -0.07, -0.07,  0.25, 0.07, -0.07,// MNOP
+            0.0, -0.07, -0.07,  0.0, 0.07, -0.07,  0.25, -0.07, -0.07,  0.25, 0.07, -0.07,// KLOP
+        ]);
+        // body - normal
+        const body_normals = new Float32Array([
+            -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,// ABCD
+            0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,// ABEF
+            0.0, -1.0, 0.0,  0.0, -1.0, 0.0,  0.0, -1.0, 0.0,  0.0, -1.0, 0.0,// ACEG
+            0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,// BDFH
+            1.0, 0.0, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, 0.0,// EFGH
+            0.0, 0.0, -1.0,  0.0, 0.0, -1.0,  0.0, 0.0, -1.0,  0.0, 0.0, -1.0,// CDGH
+            0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,// IJMN
+            0.0, -1.0, 0.0,  0.0, -1.0, 0.0,  0.0, -1.0, 0.0,  0.0, -1.0, 0.0,// IKMO
+            0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,// JLNP
+            1.0, 0.0, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, 0.0,// MNOP
+            0.0, 0.0, -1.0,  0.0, 0.0, -1.0,  0.0, 0.0, -1.0,  0.0, 0.0, -1.0,// KLOP
+        ]);
+        // body - indices
+        const body_indices = new Uint8Array([
+            0, 1, 2,  1, 3, 2,// ABCD
+            1, 4, 5,  0, 4, 1,// ABEF
+            0, 2, 4,  2, 6, 4,// ACEG
+            3, 5, 7,  1, 5, 3,// BDFH
+            5, 6, 7,  4, 6, 5,// EFGH
+            2, 3, 6,  3, 7, 6,// CDGH
+            9, 12, 13,  8, 12, 9,// IJMN
+            8, 10, 12,  10, 14, 12,// IKMO
+            11, 13, 15,  9, 13, 11,// JLNP
+            13, 14, 15,  12, 14, 13,// MNOP
+            10, 11, 14,  11, 15, 14,// KLOP
+        ]);
+        this.n = body_indices.length;
+
+        // rotor - vertices
+        const rotor_vertices = new Float32Array([
+            -0.125, 0.0, 0.125,  -0.625, 0.05, 0.125,  -0.625, -0.05, 0.125,//ABC
+            -0.125, 0.0, 0.125,  -0.13, -0.5, 0.125,  -0.12, -0.5, 0.125,//ADE
+            -0.125, 0.0, 0.125,  0.375, -0.05, 0.125,  0.375, 0.05, 0.125,//AFG
+            -0.125, 0.0, 0.125,  -0.12, 0.5, 0.125,  -0.13, 0.5, 0.125,//AHI
+        ]);
+        // rotor - normal
+        const rotor_normals = new Float32Array([
+            0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,//ABC
+            0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,//ADE
+            0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,//AFG
+            0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,//AHI
+        ]);
+        // rotor - indices
+
+        // ===== body =====
+        this.body_vao = gl.createVertexArray();
+        gl.bindVertexArray(this.body_vao);
+
+        // vertex buffer
+        const body_vertexBuffer = gl.createBuffer();
+        if (!body_vertexBuffer) {
+            console.log('Failed to create the body vertex buffer object');
+            return -1;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, body_vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, body_vertices, gl.STATIC_DRAW);
+
+        // normal buffer
+        const body_normalBuffer = gl.createBuffer();
+        if (!body_normalBuffer) {
+            console.log('Failed to create the body normal buffer object');
+            return -1;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, body_normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, body_normals, gl.STATIC_DRAW);
+
+        // index buffer
+        const body_indexBuffer = gl.createBuffer();
+        if (!body_indexBuffer) {
+            console.log('Failed to create the body index buffer object');
+            return -1;
+        }
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, body_indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, body_indices, gl.STATIC_DRAW);
+
+        // attrib
+        gl.vertexAttribPointer(Chopper.loc_aPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(Chopper.loc_aPosition);
+        gl.vertexAttribPointer(Chopper.loc_aNormal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(Chopper.loc_aNormal);
+
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); //? 추가함
+
+        // ===== rotor =====
+        this.rotor_vao = gl.createVertexArray();
+        gl.bindVertexArray(this.rotor_vao);
+
+        // vertex buffer
+        const rotor_vertexBuffer = gl.createBuffer();
+        if (!rotor_vertexBuffer) {
+            console.log('Failed to create the rotor vertex buffer object');
+            return -1;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, rotor_vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, rotor_vertices, gl.STATIC_DRAW);
+
+        // normal buffer
+        const rotor_normalBuffer = gl.createBuffer();
+        if (!rotor_normalBuffer) {
+            console.log('Failed to create the rotor normal buffer object');
+            return -1;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, rotor_normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, rotor_normals, gl.STATIC_DRAW);
+
+        // attrib
+        gl.vertexAttribPointer(Chopper.loc_aPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(Chopper.loc_aPosition);
+        gl.vertexAttribPointer(Chopper.loc_aNormal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(Chopper.loc_aNormal);
+
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
+    set_uniform_matrices(gl, h_prog, V, P)
+    {
+        // mat4 MV
+        mat4.copy(this.MV, V);
+        //mat4.multiply(this.MV, this.MV, M); -> 우리는 M을 안쓸 예정?
+        gl.uniformMatrix4fv(gl.getUniformLocation(h_prog, "MV"), false, this.MV);
+        // mat4 MVP
+        mat4.copy(this.MVP, P);
+        //mat4.multiply(this.MVP, this.MVP, this.MV);
+        mat4.multiply(this.MVP, this.MVP, V);
+        mat4.translate(this.MVP, this.MVP, [0.0, 0.0, 1.5]);
+        gl.uniformMatrix4fv(gl.getUniformLocation(h_prog, "MVP"), false, this.MVP);
+        // mat4 matNormal
+        mat4.invert(this.N, this.MV);
+        mat4.transpose(this.N, this.N);
+        gl.uniformMatrix4fv(gl.getUniformLocation(h_prog, "matNormal"), false, this.N);
+
+    }
+    set_uniform_lights(gl, h_prog, lights, V)
+    {
+        let v = vec4.create();
+        for(let i = 0; i < Chopper.numLights; ++i)
+        {
+            let light = lights[i];
+            mat4.copy(this.MV, V);
+            mat4.multiply(this.MV, this.MV, light.M);
+            vec4.transformMat4(v, light.position, this.MV);
+
+            gl.uniform4fv(gl.getUniformLocation(h_prog, `light[${i}].position`), v);
+            gl.uniform3fv(gl.getUniformLocation(h_prog, `light[${i}].ambient`), light.ambient);
+            gl.uniform3fv(gl.getUniformLocation(h_prog, `light[${i}].diffuse`), light.diffuse);
+            gl.uniform3fv(gl.getUniformLocation(h_prog, `light[${i}].specular`), light.specular);
+            gl.uniform1i(gl.getUniformLocation(h_prog, `light[${i}].enabled`), light.enabled);
+
+            //vec4.transformMat4(v, light.direction, this.MV);
+
+            //gl.uniform4fv(gl.getUniformLocation(h_prog, `light[${i}].direction`), v);
+            //gl.uniform1f(gl.getUniformLocation(h_prog, `light[${i}].cutoff_angle`), Math.cos(light.cutoff_angle*Math.PI/180.0));
+        }
+    }
+    set_uniform_material(gl, h_prog, mat)
+    {
+        gl.uniform3fv(gl.getUniformLocation(h_prog, "material.ambient"), mat.ambient);
+        gl.uniform3fv(gl.getUniformLocation(h_prog, "material.diffuse"), mat.diffuse);
+        gl.uniform3fv(gl.getUniformLocation(h_prog, "material.specular"), mat.specular);
+        gl.uniform1f(gl.getUniformLocation(h_prog, "material.shininess"), mat.shininess * 128.0);
+
+    }
+    render(gl, V, P, lights, material)
+    {
+        gl.useProgram(Chopper.h_prog);
+        // ===== body =====
+        gl.bindVertexArray(this.body_vao);
+        this.set_uniform_matrices(gl, Chopper.h_prog, V, P);
+        // get the storage location of uSampler
+        //let loc_uSampler = gl.getUniformLocation(Terrain.h_prog, 'uSampler');
+        //if (!loc_uSampler) {
+        //    console.log('Failed to get the storage location of uSampler');
+        //    return false;
+        //}
+        // Set the texture unit 0 to the sampler
+        //gl.uniform1i(loc_uSampler, 0);
+
+        if (lights)     this.set_uniform_lights(gl, Chopper.h_prog, lights, V);
+        if (material)   this.set_uniform_material(gl, Chopper.h_prog, material);
+        gl.drawElements(gl.TRIANGLES, this.n / 2, gl.UNSIGNED_SHORT, 0);
+        gl.bindVertexArray(null);
+        // ===== rotor =====
+        gl.bindVertexArray(this.rotor_vao);
+        this.set_uniform_matrices(gl, Chopper.h_prog, V, P);
+        if (lights)     this.set_uniform_lights(gl, Chopper.h_prog, lights, V);
+        if (material)   this.set_uniform_material(gl, Chopper.h_prog, material);
+        gl.drawArrays(gl.TRIANGLES, 0, 12);
+        gl.bindVertexArray(null);
+        gl.useProgram(null);
+    }
+}
+Chopper.loc_aPosition = 0;
+Chopper.loc_aNormal = 4;
+Chopper.numLights = 1;
+
+// Blinn - Phong
+Chopper.src_shader_vert = `#version 300 es
+layout(location=${Chopper.loc_aPosition}) in vec4 aPosition;
+layout(location=${Chopper.loc_aNormal}) in vec3 aNormal;
+uniform mat4	MVP;
+uniform mat4	MV;
+uniform mat4	matNormal;
+out vec3	vNormal;
+out vec4	vPosEye;
+void main()
+{
+    vPosEye = MV*aPosition;
+    vNormal = normalize(mat3(matNormal)*aNormal);
+    gl_Position = MVP*aPosition;
+}
+`;
+Chopper.src_shader_frag = `#version 300 es
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+// Passed in from the vertex shader.
+//in vec2 vTexCoord; // to be deleted
+in vec3 vNormal;
+in vec4 vPosEye;
+// The texture.
+uniform sampler2D uSampler; // to be deleted
+// we need to declare an output for the fragment shader.
+out vec4 fColor;
+struct Material
+{
+    vec3    ambient;
+    vec3    diffuse;
+    vec3    specular;
+    //vec3    emission;
+    float   shininess;
+};
+struct Light
+{
+    vec4    position;
+    vec3    ambient;
+    vec3    diffuse;
+    vec3    specular;
+    bool    enabled;
+};
+uniform Material material;
+uniform Light light[${Chopper.numLights}];
+
+void main() {
+    //fColor = texture(uSampler, vTexCoord);
+
+    vec3 n = normalize(vNormal);
+    vec3 l;
+    vec3 v = normalize(-vPosEye.xyz);
+    fColor = vec4(0.0);
+    for (int i = 0; i < ${Chopper.numLights}; ++i)
+    {
+        if(light[i].enabled)
+        {
+            // Blinn-Phong
+            
+            if(light[i].position.w == 1.0)
+                l = normalize((light[i].position - vPosEye).xyz);		// positional light
+            else
+                l = normalize((light[i].position).xyz);	// directional light
+            float	l_dot_n = max(dot(l, n), 0.0);
+            vec3	ambient = light[i].ambient * material.ambient;
+            vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
+            vec3	specular = vec3(0.0);
+            if(l_dot_n > 0.0)
+            {
+                vec3	h = normalize(l + v);
+                specular = light[i].specular * material.specular * pow(max(dot(h, n), 0.0), material.shininess);
+            }
+            fColor += vec4(ambient + diffuse + specular, 1);
+            
+            // Phong-Phong
+            /*
+            if(light[i].position.w == 1.0)
+                l = normalize((light[i].position - vPosEye).xyz);
+            else
+                l = normalize((light[i].position).xyz);
+            vec3	r = reflect(-l, n);
+            float	l_dot_n = max(dot(l, n), 0.0);
+            vec3	ambient = light[i].ambient * material.ambient;
+            vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
+            vec3	specular = vec3(0.0);
+            if(l_dot_n > 0.0)
+            {
+                specular = light[i].specular * material.specular * pow(max(dot(r, v), 0.0), material.shininess);
+            }
+            fColor += vec4(ambient + diffuse + specular, 1);
+            */
+        }
+    }
+    fColor.w = 1.0;
+}
+`;
+Chopper.shader = null;
+
 // ===== Shaders =====
 function init_shader(gl, type, src)
 {
