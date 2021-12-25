@@ -36,9 +36,6 @@ function main()
     const maxLights = 10;   // 최대 light 개수
     let numLights = 1;  // 현재 light 개수
 
-    const g = -0.000000001; // 중력가속도
-
-
     // ===== lights =====
     let light_lists = [
         // fixed light
@@ -67,7 +64,7 @@ function main()
     //let chopper_mat = new Material([0.25,0.20725,0.20725], [1.0,0.829,0.829], [0.296648,0.296648,0.296648], 0.088);
 
     // chopper control
-    const ANGLE_STEP = 5.0; //3.0;
+    const ANGLE_STEP = 3.0;
     const TRANS_STEP = 0.05;
     let chopper_rotation = 0.0; // rotateZ
     let chopper_forback = 1.0; // x-axis
@@ -75,6 +72,7 @@ function main()
     transform_chopper(M, chopper_rotation, chopper_forback, chopper_updown);    // 초기 위치 설정
     console.log(chopper_rotation, chopper_forback, chopper_updown);
 
+    let bullet_position = [-0.125, 0.0, 0.0];
     
     
     document.getElementsByTagName("BODY")[0].onkeydown = function(ev) {
@@ -82,9 +80,6 @@ function main()
         {
             case 'ArrowUp':
                 if(ev.getModifierState("Shift"))	elevation += 5;
-                //else {
-                //    if (chopper_forback - TRANS_STEP )
-                //}
                 else    transform_chopper(M, 0, -TRANS_STEP, 0);    chopper_forback -= TRANS_STEP;
                 break;
             case 'ArrowDown':
@@ -108,7 +103,6 @@ function main()
                 transform_chopper(M, 0, 0, -TRANS_STEP);    chopper_updown -= TRANS_STEP;
                 break;
             case ' ':
-                create_bullet();
                 break;
             case '=':
             case '+':
@@ -147,45 +141,10 @@ function main()
         axes.render(gl, V, P);
 
 
-        // light_lists[i].enabled == false 인 것 삭제
-        /*
-        for (let i in light_lists)
-        {
-            if (light_lists[i].new_position[2] < 0) {
-
-            }
-        }*/
-
-        let fallen = light_lists.find(function (item) { return item.new_position[2] < 0 });
-        let idx = light_lists.indexOf(fallen);
-        if (idx > -1)  {
-            light_lists.splice(idx, 1);
-            //Terrain.numLights = light_lists.length;
-            Chopper.numLights = light_lists.length;
-        } 
-
-        
 
         for (let i in light_lists)
         {
-            // 1 - render lights
             light_lists[i].render(gl, V, P);
-            // fixed light는 넘어가기
-            if (i == 0) continue;
-            // 2 - position translate
-                // light_lists[i].position 
-            // delta_x = velocity * elapse
-            let delta_x = light_lists[i].velocity * elapsed;
-            // delta_y = velocity * elapse
-            //let delta_y = light_lists[i].velocity * elapsed;
-            // delta_z = velocity_z_0 * elapse
-            let delta_z = light_lists[i].velocity_z * elapsed;
-            
-            //mat4.translate(light_lists[i].M, light_lists[i].M, [delta_x, delta_y, delta_z]);
-            mat4.translate(light_lists[i].M, light_lists[i].M, [delta_x, 0, delta_z]);
-
-            // (this.Vz) velocity_z_0 = velocity_z_!
-            light_lists[i].velocity_z = light_lists[i].velocity_z + g * elapsed;
         }
 
         //console.log(M);
@@ -207,40 +166,8 @@ function main()
     };
     tick();
 
-    // spacebar 누르면 glowing bullets 생성
-    const create_bullet = function ()
-    {
-        
-        if (light_lists.length + 1 <= maxLights) {
-        //if (numLights + 1 <= maxLights) {
-            //numLights += 1;
-            //Terrain.numLights = numLights;    // ++
-            //Chopper.numLights = numLights; // ++
-        
-            let velocity_x = -(Math.random() * 0.0004 + 0.0003);
-
-            light_lists.push(
-                new Light(
-                    gl, 
-                    [-0.125, 0.0, 0.0, 1.0], // position
-                    [0.1, 0.1, 0.1, 1.0],   // ambient
-                    [0.2, 0.2, 0.2, 1.0],  // diffuse
-                    [1.0, 1.0, 1.0, 1.0], // specular
-                    true, // enabled
-                    M,   // M (현재 chopper의 M)
-                    //-0.0007,// velocity
-                    velocity_x,
-                )
-            );
-            console.log(light_lists);
-            
-            // Terran.numLights = light_lists.length;
-            Chopper.numLights = light_lists.length;
-
-            console.log(light_lists.length);
-        }
-
-    }
+    // spacebar 누르면 glowing bullets
+    
 }
 
 
@@ -705,28 +632,17 @@ Chopper.shader = null;
 // ===== Light =====
 class Light
 {
-    constructor(gl, position, ambient, diffuse, specular, enabled, M=false, velocity=0)//, cutoff_angle = 180, direction = [0,0,0])
+    constructor(gl, position, ambient, diffuse, specular, enabled)//, cutoff_angle = 180, direction = [0,0,0])
 	{
 		this.position = vec4.clone(position);
 		this.ambient = vec3.clone(ambient);
 		this.diffuse = vec3.clone(diffuse);
 		this.specular = vec3.clone(specular);
 		this.enabled = enabled;
-
-        if (M)  this.M = mat4.clone(M);  // 받은 chopper_body의 M을 clone 받음
-        else    this.M = mat4.create();  // fixed light의 경우, M을 새로 생성
-		//this.M = mat4.create();
-        //this.M = mat4.clone(M); // 받은 chopper_body의 M을 clone 받음
-
+		this.M = mat4.create();
 		this.MVP = mat4.create();
 		//this.direction = vec4.clone([direction[0], direction[1], direction[2], 0.0]);
 		//this.cutoff_angle = cutoff_angle;
-
-        this.velocity = velocity;
-        //this.velocity_z = velocity;
-        this.velocity_z = -0.0002;
-
-        this.new_position = vec4.create();
 
 		if(!Light.h_prog)
 			Light.h_prog = init_shaders(gl, Light.src_shader_vert, Light.src_shader_frag);
@@ -742,17 +658,15 @@ class Light
 	}
 	render(gl, V, P)
 	{
-        //let v = vec4.create();
+        let v = vec4.create();
 
 		gl.useProgram(Light.h_prog);
         mat4.copy(this.MVP, P);
         mat4.multiply(this.MVP, this.MVP, V);
 //		this.MVP.set(P); this.MVP.multiply(V);
 		gl.uniformMatrix4fv(gl.getUniformLocation(Light.h_prog, "MVP"), false, this.MVP);
-        //vec4.transformMat4(v, this.position, this.M);
-		//gl.vertexAttrib4fv(Light.loc_aPosition, v);
-        vec4.transformMat4(this.new_position, this.position, this.M);
-		gl.vertexAttrib4fv(Light.loc_aPosition, this.new_position);
+        vec4.transformMat4(v, this.position, this.M);
+		gl.vertexAttrib4fv(Light.loc_aPosition, v);
 //		gl.vertexAttrib4fv(Light.loc_aPosition, this.M.multiplyVector4(this.position).elements);
 		if(this.enabled)	gl.vertexAttrib3f(Light.loc_aColor, 1, 1, 1);
 		else				gl.vertexAttrib3f(Light.loc_aColor, .1, .1, .1);
