@@ -544,7 +544,7 @@ out vec4 vPosEye;
 
 void main() {
     float l = 4.0;  // L_x = L_y = 4
-    float s = 1.5;  // scale = 1.5
+    float s = 1.35;  // scale = 1.35
 
     // get the height from the heightmap image
     float heightmap_color = texture(uSampler, aTexCoord).r;
