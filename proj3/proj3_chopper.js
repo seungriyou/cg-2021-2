@@ -745,8 +745,13 @@ class Light
         //let v = vec4.create();
 
 		gl.useProgram(Light.h_prog);
+
         mat4.copy(this.MVP, P);
         mat4.multiply(this.MVP, this.MVP, V);
+        //mat4.copy(this.MVP, V);
+        //mat4.multiply(this.MVP, this.MVP, this.M);
+        //mat4.multiply(this.MVP, P, this.MVP);
+
 //		this.MVP.set(P); this.MVP.multiply(V);
 		gl.uniformMatrix4fv(gl.getUniformLocation(Light.h_prog, "MVP"), false, this.MVP);
         //vec4.transformMat4(v, this.position, this.M);
