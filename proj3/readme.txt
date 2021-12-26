@@ -42,5 +42,5 @@
         ㄴ terrain.js
     ㄴ proj3.html
     ㄴ proj3.js
-    ㄴ readme.txt
+    ㄴ README.txt
     ㄴ yorkville.jpg
