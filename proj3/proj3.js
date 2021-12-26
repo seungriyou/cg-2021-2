@@ -487,7 +487,7 @@ class Terrain
     set_uniform_lights(gl, h_prog, lights, V)
     {
         let v = vec4.create();
-        for (let i = 0; i < Terrain.num_lights; ++i) {
+        for (let i = 0; i < Terrain.max_lights; ++i) {
             let light = lights[i];
             mat4.copy(this.MV, V);
             mat4.multiply(this.MV, this.MV, light.M);
@@ -520,7 +520,7 @@ class Terrain
     }
 }
 Terrain.loc_aTexCoord = 7;
-Terrain.num_lights = 10;
+Terrain.max_lights = 10;
 
 // Blinn - Phong
 Terrain.src_shader_vert = `#version 300 es
@@ -587,14 +587,14 @@ struct Light
     bool	enabled;
 };
 uniform Material material;
-uniform Light light[${Terrain.num_lights}];
+uniform Light light[${Terrain.max_lights}];
 
 void main() {
     vec3 n = normalize(vNormal);
     vec3 l;
     vec3 v = normalize(-vPosEye.xyz);
     fColor = vec4(0.0);
-    for (int i = 0; i < ${Terrain.num_lights}; ++i)
+    for (int i = 0; i < ${Terrain.max_lights}; ++i)
     {
         if(light[i].enabled)
         {
@@ -795,7 +795,7 @@ class Chopper
     set_uniform_lights(gl, h_prog, lights, V)
     {
         let v = vec4.create();
-        for (let i = 0; i < Chopper.num_lights; ++i) {
+        for (let i = 0; i < Chopper.max_lights; ++i) {
             let light = lights[i];
             mat4.copy(this.MV, V);
             mat4.multiply(this.MV, this.MV, light.M);
@@ -840,7 +840,7 @@ class Chopper
 }
 Chopper.loc_aPosition = 0;
 Chopper.loc_aNormal = 4;
-Chopper.num_lights = 10;
+Chopper.max_lights = 10;
 
 // Blinn - Phong
 Chopper.src_shader_vert = `#version 300 es
@@ -881,14 +881,14 @@ struct Light
     bool	enabled;
 };
 uniform Material	material;
-uniform Light		light[${Chopper.num_lights}];
+uniform Light		light[${Chopper.max_lights}];
 void main()
 {
     vec3	n = normalize(vNormal);
     vec3	l;
     vec3	v = normalize(-vPosEye.xyz);
     fColor = vec4(0.0);
-    for (int i=0 ; i<${Chopper.num_lights} ; i++)
+    for (int i=0 ; i<${Chopper.max_lights} ; i++)
     {
         if(light[i].enabled)
         {   
