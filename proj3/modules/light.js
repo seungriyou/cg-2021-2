@@ -5,7 +5,7 @@ import * as vec3 from "../gl-matrix/vec3.js"
 
 export class Light
 {
-    constructor(gl, position, ambient, diffuse, specular, enabled, velocity_x=0)
+    constructor(gl, position, ambient, diffuse, specular, enabled)
     {
 		this.position = vec4.clone(position);
 		this.ambient = vec3.clone(ambient);
@@ -16,7 +16,6 @@ export class Light
         this.M = mat4.create();
 		this.MVP = mat4.create();
 
-        this.velocity_x = velocity_x;
         this.velocity_z = -0.00025;
 
         this.new_position = vec4.create();
@@ -32,6 +31,10 @@ export class Light
     {
         // copy from the current chopper's M
         mat4.copy(this.M, M);
+    }
+    set_velocity_x(v_x)
+    {
+        this.velocity_x = v_x;
     }
     render(gl, V, P)
 	{

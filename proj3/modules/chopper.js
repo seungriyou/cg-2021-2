@@ -275,9 +275,12 @@ void main()
     fColor = vec4(0.0);
     for (int i=0 ; i<${Chopper.max_lights} ; i++)
     {
-        if(light[i].enabled)
+        if (light[i].enabled)
         {   
-            l = normalize((light[i].position - vPosEye).xyz);
+            if (light[i].position.w == 1.0)     // positional light
+                l = normalize((light[i].position - vPosEye).xyz);		
+            else    // directional light
+                l = normalize((light[i].position).xyz);	
             float	l_dot_n = max(dot(l, n), 0.0);
             vec3	ambient = light[i].ambient * material.ambient;
             vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;

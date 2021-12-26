@@ -27,7 +27,7 @@ function main()
 
     let t_last = Date.now();
 
-    const g = 0.000000001; // gravitational acceleration
+    const g = 0.00000000005; // gravitational acceleration
     
     // ===== things to render =====
     let axes = new Axes(gl);
@@ -38,8 +38,14 @@ function main()
     // initialize w/ one fixed light
     let light_list = [
         new Light(
+            // gl,
+            // [2.2, 2.2, 2.2, 0.0],//[1.0, 1.5, 1.8, 0.0],   // position (directional light)
+            // [0.1, 0.1, 0.1, 1.0],   // ambient
+            // [0.1, 0.1, 0.1, 1.0],   // diffuse
+            // [1.0, 1.0, 1.0, 1.0],   // specular
+            // true,                   // enabled
             gl,
-            [1.8, 1.8, 1.8, 1.0],   // position
+            [2.5, 2.5, 2.2, 1.0], // [1.8, 1.8, 1.5, 1.0],   // position (positional light)
             [0.1, 0.1, 0.1, 1.0],   // ambient
             [0.2, 0.2, 0.2, 1.0],   // diffuse
             [1.0, 1.0, 1.0, 1.0],   // specular
@@ -51,24 +57,37 @@ function main()
         light_list.push(
             new Light(
                 gl, 
-                [-0.125, 0.0, 0.0, 1.0],    // position (start at chopper's front face)
+                [-0.125, 0.0, 0.0, 1.0],    // position (start at chopper's front face) (point light)
                 [0.03, 0.03, 0.03, 1.0],    // ambient
                 [0.03, 0.03, 0.03, 1.0],    // diffuse
                 [0.3, 0.3, 0.3, 1.0],       // specular
                 false,                      // enabled
-                -(Math.random() * 0.0003 + 0.0003), // random x-axis velocity (-0.0006 ~ -0.0003)
             )
         );
     }
 
     // ===== materials =====
     // terrain - copper
-    const terrain_material = new Material([0.19125,0.0735,0.0225], [0.7038,0.27048,0.0828], [0.256777,0.137622,0.086014], 0.1);
+    const terrain_material = new Material(
+        [0.19125,0.0735,0.0225], 
+        [0.7038,0.27048,0.0828], 
+        [0.256777,0.137622,0.086014], 
+        0.1);
+    // chopper - turquoise
+    const chopper_material = new Material(
+        [0.1,	0.18725,	0.1745], 
+        [0.396,	0.74151,	0.69102], 
+        [0.297254,	0.30829,	0.306678], 
+        0.1);
     // chopper - silver
-    const chopper_material = new Material([0.19225,0.19225,0.19225], [0.50754,0.50754,0.50754], [0.508273,0.508273,0.508273], 0.4);
+    // const chopper_material = new Material(
+    //     [0.19225,0.19225,0.19225], 
+    //     [0.50754,0.50754,0.50754], 
+    //     [0.508273,0.508273,0.508273], 
+    //     0.4);
     
     // ===== for chopper control =====
-    const ANGLE_STEP = 5.0;
+    const ANGLE_STEP = 6.0;
     const TRANS_STEP = 0.05;
     transform_chopper(M, 0.0, 1.0, 1.5); // initialize chopper's position
 
@@ -127,6 +146,7 @@ function main()
         let idx = light_list.indexOf(disabled);
         if (idx > -1) {
             light_list[idx].set_M(M);
+            light_list[idx].set_velocity_x(-(Math.random() * 0.00025 + 0.0004));
             light_list[idx].turn_on(true);
         }
     };
@@ -149,14 +169,16 @@ function main()
 
             if (i == 0) continue;   // if fixed light, do not transform
 
-            // compute new position for bullets w/ velocity
-            let delta_x = light_list[i].velocity_x * elapsed;
-            let delta_z = light_list[i].velocity_z * elapsed;
+            if (light_list[i].enabled) {
+                // compute new position for bullets w/ velocity
+                let delta_x = light_list[i].velocity_x * elapsed;
+                let delta_z = light_list[i].velocity_z * elapsed;
 
-            // translate bullets
-            mat4.translate(light_list[i].M, light_list[i].M, [delta_x, 0, delta_z]);
+                // translate bullets
+                mat4.translate(light_list[i].M, light_list[i].M, [delta_x, 0, delta_z]);
 
-            light_list[i].velocity_z = light_list[i].velocity_z - g * elapsed;
+                light_list[i].velocity_z = light_list[i].velocity_z - g * elapsed;
+            }
         }
 
         // rotate the rotor of the chopper

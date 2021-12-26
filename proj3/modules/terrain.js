@@ -194,7 +194,7 @@ void main() {
 
     vec3 ds = vec3(l, 0.0, (s1 - s0) / double_delta);
     vec3 dt = vec3(0.0, l, (t1 - t0) / double_delta);
-    vec3 new_normal = cross(ds, dt);
+    vec3 new_normal = normalize(cross(ds, dt));
 
     // transform the location of the vertex for the graphics pipeline.
     gl_Position = MVP * vec4(new_vertex, 1.0);
@@ -234,9 +234,12 @@ void main() {
     fColor = vec4(0.0);
     for (int i = 0; i < ${Terrain.max_lights}; ++i)
     {
-        if(light[i].enabled)
+        if (light[i].enabled)
         {
-            l = normalize((light[i].position - vPosEye).xyz);
+            if (light[i].position.w == 1.0)   // positional light
+                l = normalize((light[i].position - vPosEye).xyz);		
+            else    // directional light
+                l = normalize((light[i].position).xyz);
             float	l_dot_n = max(dot(l, n), 0.0);
             vec3	ambient = light[i].ambient * material.ambient;
             vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
