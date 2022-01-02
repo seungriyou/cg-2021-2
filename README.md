@@ -11,14 +11,18 @@
 - 요구사항: [LINK](https://github.com/seungriyou/cg-2021-2/blob/main/proj1/proj1.pdf)
 - 제출물: [ZIP FILE](https://github.com/seungriyou/cg-2021-2/blob/main/proj1/proj1-2018920031-%EC%9C%A0%EC%8A%B9%EB%A6%AC.zip) / [GITHUB](https://github.com/seungriyou/cg-2021-2/tree/main/proj1)
   
-<img src="https://user-images.githubusercontent.com/43572543/147849542-8a92ae2b-aefa-4af4-ab91-892bb23bd103.gif" width="600" style="margin-left: auto; margin-right: auto; display: block;" />   
+<p style="text-align: center;">
+    <img src="https://user-images.githubusercontent.com/43572543/147849542-8a92ae2b-aefa-4af4-ab91-892bb23bd103.gif" width="600" />  
+</p>
 
 ## Project #2
 - 사용한 라이브러리: WebGL2.0
 - 요구사항: [LINK](https://github.com/seungriyou/cg-2021-2/blob/main/proj2/proj2.pdf)
 - 제출물: [ZIP FILE](https://github.com/seungriyou/cg-2021-2/blob/main/proj2/proj2-2018920031-%EC%9C%A0%EC%8A%B9%EB%A6%AC.zip) / [GITHUB](https://github.com/seungriyou/cg-2021-2/tree/main/proj2)
   
-<img src="https://user-images.githubusercontent.com/43572543/147849558-128823c1-2ae1-4c3d-836f-fb7b3a6a3e4a.gif" width="600" style="margin-left: auto; margin-right: auto; display: block;" />   
+<p style="text-align: center;">
+    <img src="https://user-images.githubusercontent.com/43572543/147849558-128823c1-2ae1-4c3d-836f-fb7b3a6a3e4a.gif" width="600" />   
+</p>
 
 ## Project #3
 - 사용한 라이브러리: WebGL2.0
